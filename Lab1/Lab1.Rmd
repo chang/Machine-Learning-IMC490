@@ -187,7 +187,7 @@ To read data into R, use the `read.csv()` function with a filepath or a URL.
 
 ```{r}
 auto = read.csv("Auto.csv")
-auto = read.csv("http://www-bcf.usc.edu/~gareth/ISL/Auto.csv")
+auto = read.csv("http://www-bcf.usc.edu/~gareth/ISL/Auto.csv", na.strings = "?")
 head(auto)
 ```
 
