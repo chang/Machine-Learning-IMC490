@@ -9,10 +9,10 @@ In this lab, we'll be going over the following topics:
 - navigating your filesystem from R
 - basic data types
 - vectors
-- dataframe
+- dataframes
 - reading data into R
 
-**Remember to use ?command or help(command) in the R console to access documentation at any time if you have questions.**
+Remember to use `?command` or `help(command)` in the R console to access documentation at any time if you have questions.
 
 ### Navigation
 
@@ -20,7 +20,7 @@ In this lab, we'll be going over the following topics:
 `getwd()`  
 `list.files()`  
 
-The above three commands will allow you to navigate your filesystem. You'll use `getwd()` (**get** **w**orking **d**irectory) to figure out where you are, `setwd()` (**set** **w**orking **d**irectory) to move around, and `list.files()` to look at the stuff that's in the folder.
+Let's start by getting around your filesystem. You'll use `getwd()` (**get** **w**orking **d**irectory) to figure out where you are, `setwd()` (**set** **w**orking **d**irectory) to move around, and `list.files()` to look at the stuff that's in the folder.
  
 
 ```{r,}
@@ -136,6 +136,14 @@ dat$z = c(11:15)
 dat
 ```
 
+**Some important dataframe functions:**  
+``names()``  
+``str()``  
+``summary()``  
+``nrow()``  
+``ncol()``  
+``na.omit()``
+
 \newpage
 
 To index dataframes, use square brackets after the dataframe name. To index a dataframe using any of the following methods, you need to provide 2 dimensions - for rows and columns. You can pass in integer, character, or logical vectors - or leave the dimension blank to get the all rows or all columns.  
@@ -164,13 +172,7 @@ dat[dat$x >= 3 & dat$z <= 14, ]
 ```
 
 
-**Some important dataframe functions**
-``names()``  
-``str()``  
-``summary()``  
-``nrow()``  
-``ncol()``  
-``na.omit()``
+
 
 \newpage
 ### Reading and exploring data
