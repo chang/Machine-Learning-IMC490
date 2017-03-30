@@ -1,0 +1,162 @@
+---
+title: 'Lab 1 Solutions'
+author: "IMC 490: Machine Learning for IMC"
+date: "March 30, 2017"
+output: pdf_document
+---
+
+Here are solutions to the 10 exercises at the end of Lab 1. Remember there are several ways to do each problem, so in some cases I'll provide more than 1 answer to demonstrate this. You'll be able to do all of these problems using the commands presented in the lab.  
+
+*Remember to use* `?command` *or* `help(command)` *to read up on how to use any command you're not familiar with. Googling for StackOverflow answers is also a key way to find answers.*
+
+Note: In lab we spoke about R scripts. Remember that the console doesn't save your output - you always want to save your commands in an R script (File -> New File -> R Script). The script will run each command sequentially, so you typically start by loading data, then clean the data, and then train models and run statistics. I'll provide an example of what these exercises in script form will look like on Canvas.
+
+### Preliminary work
+
+```{r}
+# begin by reading the Auto data into a dataframe
+auto = read.csv("http://www-bcf.usc.edu/~gareth/ISL/Auto.csv")
+
+# let's explore the dataframe a bit
+names(auto)
+str(auto)
+```
+
+\newpage
+
+### 1. What is the average car weight? Heaviest? Lightest?
+```{r}
+mean(auto$weight)  # average
+max(auto$weight)  # heaviest
+min(auto$weight)  # lightest
+```
+
+
+### 2. How many types of engines are there (using # of cylinders) and which is the most common type?
+
+There are 5 types of engines and 4 cylinder is the most common.
+
+```{r}
+table(auto$cylinders)
+```
+
+### 3. How many unique car models are there?
+
+304 models.
+
+```{r}
+# There are too many models to use table() and count the models
+# manually this time. Instead, find the length of the vector with all unique car models.
+length(unique(auto$name))
+```
+
+
+### 4. How many cars weigh over 3000 pounds?
+
+167 cars. Note the three different ways to obtain this answer. All are about equal in efficiency.
+
+```{r}
+# Method 1: Count the number of TRUEs in the logical vector
+table(auto$weight > 3000)
+
+# Method 2: Index the dataframe using the logical vector and count the rows
+nrow(auto[auto$weight > 3000, ])
+
+# Method 3: Index the weight column (a vector) and find the length
+length(auto$weight[auto$weight > 3000])
+```
+
+
+### 5. Create a new column for kpg - kilometers per gallon, for our metric friends. (1 mile = 1.6 km)
+
+```{r}
+auto$kpg = auto$mpg * 1.6
+```
+
+
+### 6. What is the average mpg of cars made after '75? Before '75? Does it look like newer cars have more efficient engines?
+
+26.9 after '75, 19.4 before '75. Looks like newer cars do have more efficient engines.  
+
+Note the two ways to do this problem. Method 1 is more efficient if you are just trying to obtain the number, but Method 2 is better if you plan on continuing the analysis beyond just mpg, since you can just use the new dataframes you made and don't have to reindex every time.
+
+```{r}
+# Method 1: directly indexing the mpg column using the logical vector
+mean(auto$mpg[auto$year > 75])
+mean(auto$mpg[auto$year <= 75])
+
+# Method 2: splitting the dataframe first
+auto_before_75 = auto[auto$year > 75, ]
+auto_after_75 = auto[auto$year <= 75, ]
+mean(auto_before_75$mpg)
+mean(auto_after_75$mpg)
+```
+
+
+### 7. What is the model of the car with the fastest acceleration?
+
+It's a Peugeot 504. Surprisingly only a mid range car (~ $30K used). Looks like there aren't any Ferraris in this dataset.
+
+```{r}
+auto$name[auto$acceleration == max(auto$acceleration)]
+```
+
+
+### 8. Extract a dataframe of only the names and years of cars that get fewer than 12 mpg.
+
+```{r}
+auto[auto$mpg < 12, c("name", "year")]
+```
+
+
+### 9. I need a car recommendation. I'm looking for a vehicle with a 4 cylinder engine, made after 1980, with an acceleration rating of over 17.5. Grab me the list of cars that meet these criteria and recommend the one that gets the most miles per gallon.
+
+VW Pickup. 
+
+```{r}
+car_recs = auto[auto$cylinders == 4 & auto$year > 80 & auto$acceleration > 17.5, ]
+
+car_recs[car_recs$mpg == max(car_recs$mpg), ]
+```
+
+
+### 10. What is the car with the highest horsepower? (You'll run into 2 gotchas with this problem. You need to convert the horsepower column from a factor to an integer)
+
+Pontiac Grand Prix.
+
+This problem demonstrates a MAJOR gotcha when it comes to R dataframes. Note that the type of the horsepower column is a **Factor**, which we have not yet covered in lab. A "factor" in R is simply a categorical variable.
+
+```{r}
+str(auto$horsepower)
+```
+
+If we try to directly convert the column (just the first 10 observations so it's not too long) to an integer, this is what we get.
+
+```{r}
+as.integer(auto$horsepower[1:10])
+auto$horsepower[1:10]
+```
+
+Oh crap! What happened? The numbers are completely off!  
+
+**It turns out that R encodes factors as integers representing which LEVEL of an the factor the observation is.** Take the first entry. The actual horsepower is 130, but the integer conversion says 17. If we look at the 17th level in the factor...
+
+```{r}
+levels(auto$horsepower)[17]
+```
+
+We'll see that it is 130, the correct value. To convert the column correctly, first convert the column to a character (getting rid of the Factor encodings), then to an integer.
+
+```{r}
+as.integer(as.character(auto$horsepower[1:10]))
+```
+
+\newpage
+
+Awesome. Now to finish the problem. Below we see that the reason the column was read in as a Factor instead an Integer in the first place was because there are "?" entries representing missing values. **Note the warning message signifying that there the "?" cannot be converted to numbers, and are therefore converted to NA. Also note that we need to remove the NAs using `na.omit()` first, otherwise we can't calculate a max horsepower!**
+
+```{r}
+auto$horsepower_corrected = as.integer(as.character(auto$horsepower))
+auto = na.omit(auto)  # remove the NAs
+auto[auto$horsepower_corrected == max(auto$horsepower_corrected), ]
+```
