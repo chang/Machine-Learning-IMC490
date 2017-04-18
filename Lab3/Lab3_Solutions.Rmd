@@ -1,0 +1,248 @@
+---
+title: "Lab 3 Solutions"
+author: 'IMC 490: Machine Learning for IMC'
+date: "4/17/2017"
+output: pdf_document
+---
+
+In this lab, we will be going over the following topics:  
+- drop1 vs anova  
+- interactions  
+
+## drop1
+
+For a full model with p predictors, trains p regression models, dropping one predictor with each model. Reports changes in MSS and RSS for each model, aiding in analysis of predictors. Note that RSS (Residual sum of squares) and SSE (Sum of squared errors) are the same thing!
+
+*Sum of Sq:* Reduction in RSS
+*RSS:* Value of residual sum of squares
+
+```{r}
+data(mtcars)
+fit_full = lm(mpg ~ cyl + wt + hp, mtcars)
+drop1(fit_full)
+```
+
+Let's manually verify these numbers. Remember that you can access data from the fitted regression model using the `$` operator like you would access columns in a dataframe.
+
+1. Calculate TSS
+2. Write code to verify the *RSS* value (291.98) for `wt` in the drop1 output
+3. Write code to verify the *Sum of Sq* (115.35) for `wt` in the drop1 output
+4. Verify the MSS, RSS, and TSS equality using the reduced model. Make sure you understand the intuition behind the equality statement.
+5. Without looking at the model summary, can you guess which predictor is most significant? (add the parameter `test = "F"` to perform an F test.)
+
+\newpage
+
+### 1. Calculate TSS.
+```{r}
+tss = sum((mtcars$mpg - mean(mtcars$mpg)) ^ 2)
+tss
+```
+
+### 2. Write code to verify the *RSS* value (291.98) for `wt` in the drop1 output.
+```{r}
+# RSS
+fit_reduced = lm(mpg ~ cyl + hp, mtcars)
+rss_reduced = sum(fit_reduced$residuals ^ 2)
+rss_reduced
+```
+
+### 3. Write code to verify the *Sum of Sq* (115.35) for `wt` in the drop1 output.
+```{r}
+# Sum of Sq
+rss_full = sum(fit_full$residuals ^ 2)
+rss_reduced - rss_full
+```
+
+### 4. Verify the MSS, RSS, and TSS equality using the reduced model. Make sure you understand the intuition behind the equality statement.
+
+```{r}
+mss_reduced = sum((fit_reduced$fitted.values - mean(mtcars$mpg)) ^ 2)
+rss_reduced + mss_reduced == tss
+```
+
+### 5. Without looking at the model summary, can you guess which predictor is most significant? (add the parameter `test = "F"` to perform an F test.)
+
+`wt` should be the most significant feature, since it results in the greatest increase in RSS when dropped from the model. Performing the F test for significance confirms this.
+
+```{r}
+drop1(fit_full, test = "F")
+```
+
+### anova
+
+Begins with an empty model and adds predictors, evaluating sum of squares. Order matters here because the models are created as follows.
+
+1. lm(mpg ~ cyl)
+2. lm(mpg ~ cyl + wt)
+3. lm(mpg ~ cyl + wt + hp)
+
+Note that the *Sum Sq* reported is NOT the absolute sum of squares for each model, but rather the REDUCTION in sum of squares for each model.  
+
+*In both anova and drop1, a point of confusion is that when RSS is reported, it is the ABSOLUTE value of RSS for each model, whereas when SumSq is reported, it is the CHANGE in SumSq for each predictor.*
+
+```{r}
+anova(fit_full)
+```
+
+1. Verify the *Sum Sq* for the second model.
+2. Find the TSS using the anova output.
+3. Without looking at the model summary, can you guess which predictor is most significant?
+
+\newpage
+
+### 1. Verify the *Sum Sq* for the second model.
+
+To calculate the change in residual sum of squares for the second model, subtract the RSS of the first model ($mpg = \beta_0 + \beta_1*cyl$) from the second model ($mpg = \beta_0 + \beta_1*cyl + \beta_2*wt$).
+
+```{r}
+fit1 = lm(mpg ~ cyl, mtcars)
+fit2 = lm(mpg ~ cyl + wt, mtcars)
+
+fit1_sumsq = sum((fit1$fitted.values - mean(mtcars$mpg)) ^ 2)
+fit2_sumsq = sum((fit2$fitted.values - mean(mtcars$mpg)) ^ 2)
+fit2_sumsq - fit1_sumsq
+```
+
+### 2. Find the TSS using the anova output.
+
+The TSS will be equal to the sum of the *Sum Sq* column. This is because summing the *Sum Sq* for the predictor rows will obtain the MSS (variance explained by the model). The last row, labeled *Residuals*, is the RSS. Summing the two quantities will result in the equality $TSS = RSS + MSS$.
+
+```{r}
+817.71 + 117.16 + 14.55 + 176.62 == round(tss, 2)
+```
+
+### 3. Without looking at the model summary, can you guess which predictor is most significant?
+
+This is a bit of a trick question. Since the order of predictors matters when performing anova, the first predictor added, (`cyl`), results in the greatest reduction in Sum Sq and the lowest p-value. However, we have seen that `wt` is in fact the most significant predictor. This illustrates the need to be careful when interpreting anova outputs.
+
+\newpage
+
+## Interactions
+
+**"An engineer suspects that the surface finish of metal parts is influenced by the type of paint used and the drying time. He selects three drying times and two types of paint."** (from page 94 in course packet)  
+
+```{r}
+paint = data.frame(
+  type = factor(c(rep(1,9), rep(2,9))),
+  time = factor(rep(c(rep(20,3), rep(25,3), rep(30,3)), 2)), 
+  y = c(74,64,50, 73,61,44, 78,85,92, 92,86,68, 98,73,88, 66,45,85)
+)
+```
+
+Read in the data and answer the following questions:
+
+1. Fit a model to predict the quality of surface finish (`y`) using dry time (`time`), type of paint (`type`), and their interaction term.
+2. Write the regression equation.
+3. Create interaction plots of type and time. Explain in plain english the conclusion you draw from the plot.
+4. Verify your conclusion with the model summary and drop1 output.
+
+### 1. Fit a model to predict the quality of surface finish (`y`) using dry time (`time`), type of paint (`type`), and their interaction term.
+
+Since it doesn't make any sense to include an interaction term in a regression without including the base effects (i.e. putting `type*time` into a regression without `type` and `time` individually), R will automatically include the base effects when you define an interaction term in the formula.
+
+```{r}
+fit = lm(y ~ type*time, paint)
+```
+
+### 2. Write the regression equation.
+
+$$y = \beta_0 + \beta_1*type_2 + \beta_2*time_{25} + \beta_3*time_{30} + \beta_4*type_2*time_{25} + \beta_5*type_2*time_{30}$$
+
+The terms $time_{30}$ and $time_{25}$ are dummy variables that take the value of 1 when `time = 30` and `time = 25` respectively.
+
+\newpage
+
+### 3. Create interaction plots of type and time. Explain in plain english the conclusion you draw from the plot.
+
+"When the drying time is 20 or 25 minutes, the effect of the type of paint has a similar effect on the quality of finish. However, when the drying time is raised to 30 minutes, the effect of the type of paint has a different effect on the quality of finish, suggesting the existence of an interation between the features."
+
+*Note that the `col` parameter just gives a range of colors for the interaction traces to choose from.*
+
+```{r, fig.width=7, fig.height=3}
+interaction.plot(paint$type, paint$time, paint$y, col = 1:3)
+interaction.plot(paint$time, paint$type, paint$y, col = 1:100)
+```
+
+\newpage
+
+### 4. Verify your conclusion with the model summary and drop1 output.
+
+From the model summary and drop1 output, we can see that the interaction between `type` and `time25` is not statistically significant, but the interaction between `type` and `time30` is significant at $\alpha = 0.05$.
+
+```{r}
+summary(fit)
+drop1(fit, test="F")
+```
+
+
+\newpage
+
+**"An experiment was conducted to determine wheter either firing temperature of furnace position affects the baked density of a carbon anode."** (from page 94 in the course packet)
+
+```{r, eval=T}
+anode = data.frame(
+  pos = factor(c(rep(1,9), rep(2,9))),
+  temp = factor(rep(c(rep(800,3), rep(825,3), rep(850,3)), 2)), 
+  density = c(570,565,583, 1063,1080,1043, 565,510,590, 
+              528,547,521, 988,1026,1004, 526,538,532)
+)
+```
+
+Read in the data and answer the following questions:
+
+1. Fit a model to predict the density of the anode (`density`) against dry time (`time`), type of paint (`type`), and their interaction term.
+2. Write the regression equation.
+3. Create interaction plots of type and time. Explain in plain english the conclusion you draw from the plot.
+4. Verify your conclusion with the model summary and drop1 output.
+
+### 1. Fit a model to predict the density of the anode (`density`) against dry time (`time`), type of paint (`type`), and their interaction term.
+
+```{r}
+fit = lm(density ~ pos*temp, anode)
+```
+
+### 2. Write the regression equation.
+
+$$density = \beta_0 + \beta_1*pos_2 + \beta_2*temp_{825} + \beta_3*temp_{850} + \beta_4*pos_2*temp_{825} + \beta_5*pos_2*temp_{850}$$
+
+\newpage
+
+### 3. Create interaction plots of type and time. Explain in plain english the conclusion you draw from the plot.
+
+"Since the slopes of both effects are almost identical, it does not appear that there is any interaction effect between `pos` and `temp` present."
+
+*Here we introduce the `with()` function. It simply takes a dataframe as the first argument and a function call as the second argument, and when a variable in the function call is not found in the global namespace (a variable not defined elsewhere in the main script), it will look for the missing variable in the dataframe given in the first argument. This is identical to using `attach()` on your dataframe.*
+
+```{r, fig.width=7, fig.height=3}
+with(anode, interaction.plot(pos, temp, density, col=1:3))
+with(anode, interaction.plot(temp, pos, density, col=1:2))
+```
+
+\newpage
+
+### 4. Verify your conclusion with the model summary and drop1 output.
+
+We can see from the model summary and drop1 F test output that as we suspected, none of the interaction terms are statistically significant.
+
+```{r, eval = T}
+drop1(fit, test="F")
+summary(fit)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
