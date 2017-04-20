@@ -1,0 +1,174 @@
+---
+title: "Lab 4 Solutions"
+author: 'IMC 490: Machine Learning for IMC'
+date: "4/19/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this lab, we'll be going over:  
+  - logistic regression  
+  - making predictions  
+  - logistic regression which requires data transformation (bottle return problem)
+
+## Logistic Regression
+
+**In this exercise, we will be using the Titanic data - a classic dataset with information on each passenger aboard the Titanic at the time of its sinking. We will build a model to predict the likelihood of survival for a passenger based on features like sex, age, class, and so on.**
+
+*The dataset we are using is a cleaned version of the dataset used in the popular Kaggle competition, Titanic: Machine Learning from Disaster.* [https://www.kaggle.com/c/titanic](https://www.kaggle.com/c/titanic)
+
+```{r}
+titanic = read.csv("titanic_cleaned.csv")
+str(titanic)
+```
+
+In preparation for the Kaggle competition, we're going to get more hands on with handling the data in this lab. Download the dataset "titanic_cleaned.csv" from the Lab4 folder on Canvas, and do the following:
+
+1. Read the data into R
+2. Inspect the structure of the data
+3. Get rid of the `name` column - there are too many levels to regress on, and including the names of the victims makes this exercise way too real.
+4. The passenger class, `pclass`, should be a categorical feature. But since it is coded with the numbers 1-4, it is read as an integer field. Convert it to categorical.
+
+```{r, include = F}
+# 1. Read the data into R
+titanic = read.csv("titanic_cleaned.csv")
+
+# 2. Inspect the structure of the data
+str(titanic)
+
+# 3. Get rid of the `name` column
+titanic = titanic[ ,-3]
+
+# 4. Convert `pclass` to categorical
+titanic$pclass = as.factor(titanic$pclass)
+```
+
+```{r}
+# after cleaning
+str(titanic)
+```
+
+\newpage
+
+### Exercises:
+
+0. Generate a contingency table to analyze the effect of a passenger's gender on probability of survival. Are males or females more likely to survive? (hint: use `table()`)
+1. Fit a logistic regression model to predict the probability of survival using only `sex` as the predictor and print the summary.
+2. Write the regression equation.
+3. Obtain the odds ratio for $\beta_{sex}$. What is the interpretation of this value?
+4. Fit a logistic regression model to predict the probability of survival using all of the available predictors. How much better did the model get with the addition of predictors?
+5. Predict the probability of survival for Eric, a 21-year old male riding economy class (3rd) with a $20 ticket.
+6. Find the log odds value for the previous prediction. Use this to manually verify the predicted probability.
+
+
+### 0. Generate a contingency table to analyze the effect of a passenger's gender on probability of survival. (hint: use `table()`)
+
+It appears that many more females survived the titanic than males - likely due to the "women and children first" evacuation.
+
+```{r}
+table(titanic$sex, titanic$survived)
+```
+
+#### 1. Fit a logistic regression model to predict the probability of survival using only `sex` as the predictor and print the summary.
+```{r}
+fit1 = glm(survived ~ sex, family = "binomial", data = titanic)
+summary(fit1)
+```
+
+#### 2. Write out the regression equation.
+$$log(\frac{\pi}{1-\pi}) = \beta_0 + \beta_1*sex_{male}$$
+
+#### 3. Obtain the odds ratio for $\beta_{sex}$. What is the interpretation of this value?
+
+Remember that the odds ratio is $e^\beta$. This odds ratio means that if a passenger is male, his odds of survival are multiplied by 8% compared to the female baseline.
+
+```{r}
+2.71 ^ -2.46
+```
+
+#### 4. Fit a logistic regression model to predict the probability of survival using all of the available predictors.
+```{r}
+fit2 = glm(survived ~ ., family = "binomial", data = titanic)
+summary(fit2)
+```
+
+\newpage
+#### 5. Predict the probability of survival for Eric, a 21-year old male riding economy (3rd) class with a $20 ticket.
+```{r}
+new = data.frame(pclass = as.factor(3), sex = "male", age = 21, fare = 20)
+predict(fit2, new, type = "response")
+```
+
+#### 6. Find the log odds value for the previous prediction. Use this to manually verify the predicted probability.
+
+Remove the `type = "response"` parameter from `predict()` to get the log odds. To manually verify the predicted probability, solve the log odds equation for $\pi$.
+
+$$log(\frac{\pi}{1 - \pi}) = \beta_0 + \beta_1x_1 \ + \ ... \ =  -1.983$$
+
+```{r}
+predict(fit2, new)
+
+# solving for the regression equation
+e = exp(1)
+e ^ -1.9833 / (1 + e ^ -1.9833)
+```
+
+\newpage
+
+## Logistic Regression (requiring data transformation)
+
+A zoologist is researching squirrels. In a study on squirrels' favorite foods, the zoologist chooses three types of food - almonds, acorns, and cashews - and attempts to hand feed the squirrels around campus. The zoologist records data on the number of squirrels he approaches (num_approached), and the number of squirrels that take the food from him (num_fed). **Let's build a simple logistic regression to predict the probability of a squirrel taking food from the zoologist, depending on the type of the food.**
+
+```{r}
+squirrels = data.frame(num_approached = c(12, 15, 13),
+                       food = as.factor(c("almonds", "acorns", "cashews")), 
+                       num_fed = c(2, 13, 6))
+```
+
+#### Exercises:
+1. Transform the data into a form suitable for logistic regression.
+2. Fit the regression and print the summary.
+3. Looking at the regression coefficients, which food appears to be the squirrels' favorite? Is this result consistent with your intuitive conclusion from the collected data?
+
+#### 1. Transform the data into a form suitable for logistic regression.
+
+```{r}
+squirrels_transformed =
+  data.frame(food = rep(squirrels$food, 2),
+             count = c(squirrels$num_fed, squirrels$num_approached - squirrels$num_fed),
+             y = c(rep(1, 3), rep(0, 3))
+             )
+
+squirrels
+squirrels_transformed
+```
+
+\newpage
+#### 2. Fit the regression and print the summary.
+
+```{r}
+fit = glm(y ~ food, family = "binomial", weights = count, data = squirrels_transformed)
+summary(fit)
+```
+
+#### 3. Looking at the regression coefficients, which food appears to be the squirrels' favorite? Is this result consistent with your intuitive conclusion from the collected data?
+
+Since the coefficients for almonds and cashews are both negative, the squirrels' favorite food appears to be the baseline response for the dummy variables - acorns. This is consistent because in the original data, the most squirrels accepted acorns (13 out of 15) compared to almonds (2 out of 12) and cashews (6 out of 13).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
