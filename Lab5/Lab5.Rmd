@@ -1,0 +1,179 @@
+---
+title: "Data Wrangling - dplyr and magrittr"
+author: 'IMC 490: Machine Learning for IMC'
+date: "4/26/2017"
+output: pdf_document
+---
+
+[New York Times - For big data scientists, hurdle to insights is janitor work (link)](https://nytimes.com/2014/08/18/technology/for-big-data-scientists-hurdle-to-insights-is-janitor-work.html?_r=0)
+
+> "far too much handcrafted work — what data scientists call “data wrangling,” “data munging” and “data janitor work” — is still required."
+
+> "'Data wrangling is a huge — and surprisingly so — part of the job,' said Monica Rogati, vice president for data science at Jawbone."
+
+[Forbes - Data preparation most time consuming, least enjoyable data science task survey says (link)](https://forbes.com/sites/gilpress/2016/03/23/data-preparation-most-time-consuming-least-enjoyable-data-science-task-survey-says/)
+
+> "...data scientist Mike Driscoll popularized the term 'data munging,' describing the 'painful process of cleaning, parsing, and proofing one’s data' as one of the three sexy skills of data geeks."
+
+> "In 2013, Josh Wills (then director of Data Science at Cloudera, now Director of Data Engineering at Slack ) told Technology Review 'I’m a data janitor. That’s the sexiest job of the 21st century. It’s very flattering, but it’s also a little baffling.'"   
+
+> "Big Data Borat tweeted that 'Data Science is 99% preparation, 1% misinterpretation.'"  
+
+Today, we'll be going over three libraries in R for slicing and dicing data:  
+- dplyr (slice, dice, and summarize)  
+- magrittr (pipes)  
+
+Data wrangling is an important task for every data analyst and data scientist. Much of your time spent analyzing real data will be spent getting the data into a form to be analyzed. `dplyr` is the industry standard R package for cutting up data. In addition, the syntax and skills you learn using dplyr can also be directly applied to big data processing using Apache Spark. Let's get set up.
+
+
+```{r, eval=F}
+libs = c("dplyr", "magrittr")
+for (lib in libs) {
+  install.packages(lib)
+  require(lib, character.only = TRUE)
+}
+```
+
+Remember you'll have to load the packages with `require()` or `library()` the next time you start up R.
+```{r, message=F}
+require(dplyr)
+require(magrittr)
+```
+
+
+**A hugely helpful cheat sheet for these libraries:**  
+https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf
+
+**Exercises adapted from:**  
+https://github.com/brandon-rhodes/pycon-pandas-tutorial
+
+\newpage
+## dplyr
+
+To slice your data:  
+`select(data, col1, col2)` - select columns  
+`filter(data, col1 > 3)` - select rows using a logical statement  
+
+To modify your data:  
+`mutate(data, new_col = col1 + col2 / col3)` - create a new column  
+`arrange(data, col1)` - sort a dataframe by a column  
+
+You also have your standard SQL functions.  
+
+To group by and summarise:  
+`group_by(data, col1)`  
+`summarise(grouped_data, count = n())`  
+
+To join:  
+`left_join(data1, data2, by = "customer_id")`  
+`right_join()`  
+`inner_join()`  
+`outer_join()`  
+
+There are many more dplyr functions! These are just my most frequently used ones. Let's practice using them.
+
+```{r}
+# run this code to grab our demo data
+data("mtcars")
+mtcars$model = row.names(mtcars)
+row.names(mtcars) = NULL
+mtcars = select(mtcars, model, mpg:gear)
+head(mtcars)
+```
+
+\newpage
+
+**select()**
+```{r}
+d = select(mtcars, model, hp, wt)
+head(d, 4)
+```
+
+**filter()**
+```{r}
+d = filter(mtcars, hp > 100 & wt < 3000)
+head(d, 4)
+```
+
+**mutate()**
+```{r}
+d = mutate(mtcars, kpg = 1.6 * mpg)
+d = select(d, model, kpg)
+head(d, 4)
+```
+
+**arrange()**
+```{r}
+d = arrange(mtcars, mpg)
+head(d, 4)
+d = arrange(mtcars, desc(wt))
+head(d, 4)
+```
+
+\newpage
+
+**group_by() and summarise()**
+```{r}
+d = group_by(mtcars, cyl)
+d = summarise(d, avg_weight = mean(wt), number_cars = n())
+d
+```
+
+## magrittr %>%
+
+dplyr by itself provides a very intuitive grammar of data manipulation. Combined with magrittr, you can write clean data transformations in R that read like english. magrittr brings pipes into R. The pipe symbol in R looks like:  
+
+###%>%
+
+A pipe is a special symbol that transfers, or "pipes", the output of one command into the next. Using pipes, you can chain commands to build complex queries like these.
+
+*What is the average mpg of cars with over 100 horsepower that weigh between 2500 and 3500 lbs, split by the number of cylinders they have?*
+```{r}
+mtcars %>% 
+  mutate(wt = wt*1000) %>%
+  filter(hp > 100, wt < 3500, wt > 2500) %>%
+  group_by(cyl) %>%
+  summarise(avg_mpg = mean(mpg))
+```
+
+```{r, eval=F}
+mtcars %>% 
+  mutate(wt = wt*1000) %>%   # convert weight from tons to pounds
+  filter(hp > 100, wt < 3500, wt > 2500) %>% # filter by the horsepower and weight
+  group_by(cyl) %>%  # group by cylinder
+  summarise(avg_mpg = mean(mpg))  # create new field
+```
+
+
+**Tip: the pipe shortcut in RStudio is COMMAND+SHIFT+M (Mac) and CTRL+SHIFT+M (PC).**
+
+\newpage
+
+### Exercises
+
+Download and read the `cast` and `titles` dataframe from Canvas. This is data scraped from IMDB (The Internet Movie Database) on the titles and casts of movies.  
+
+Please note that the cast dataframe is intentionally big (75MB, 1M rows) - this is to demonstrate how fast dplyr can process large dataframes. It may take a second to read into R. I would suggest adding the parameter `stringsAsFactors = FALSE` to `read.csv()` as it will speed things up, but you'll ned to convert some columns like `cast$type` to factors manually.
+
+```{r, eval=F}
+titles = read.csv("titles.csv", stringsAsFactors = FALSE)
+cast = read.csv("cast.csv", , stringsAsFactors = FALSE)
+```
+
+
+0. How many movies are listed in the titles dataframe?
+0. What are the earliest two films listed in the titles dataframe?
+0. How many movies have the title "Hamlet"?
+0. When was the first movie titled "Hamlet" made?
+0. List all of the "Treasure Island" movies from earliest to most recent.
+0. In what years has a movie titled "Batman" been released?
+0. How many roles were there in the movie "Inception"?
+0. What were the 5 most important roles in "Inception"? (n = 1 is the most important)
+0. How many people have played an "Ophelia"?
+0. Which movie has the most number of roles called "The Stranger"?
+0. How many roles were available for actors in the 1950s?
+0. How many roles were avilable for actresses in the 1950s?
+0. What are the 11 most common character names in movie history?
+0. Who are the 10 people most often credited as "Herself" in film history?
+0. Using group_by(), find the number of films that have been released each year. Plot it.
+0. Find the number of actor roles and actress roles available each year.
