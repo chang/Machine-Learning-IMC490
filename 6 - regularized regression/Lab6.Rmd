@@ -1,0 +1,146 @@
+---
+title: "Lab 6"
+author: 'IMC 490: Machine Learning for IMC'
+date: "5/3/2017"
+output: pdf_document
+---
+```{r, echo=F}
+knitr::opts_chunk$set(fig.height = 3.8, fig.width = 6)
+```
+
+In this lab, we'll be going over the following topics:
+
+- ridge regression
+- lasso regression
+- stepwise selection
+
+In this lab, we will build a model to predict the salary of a baseball player based in his batting statistics.
+
+As always, we should explore and clean the data before analyzing it.
+
+- Check how many `NA` values are in `Hitters$Salary`
+- Fix this problem with dplyr
+- Check the correlations across numeric variables. You will need to use dplyr to remove the categorical variables.
+
+
+```{r, message=F}
+require(ISLR)
+data(Hitters)
+str(Hitters)
+```
+
+```{r, echo=F, results="hide", message=F}
+require(dplyr)
+table(is.na(Hitters$Salary))
+
+Hitters = 
+  Hitters %>% 
+  filter(!is.na(Salary))
+
+cors = cor(Hitters %>% dplyr::select(-League, -Division, -NewLeague))
+```
+
+\newpage
+```{r}
+fit = lm(Salary ~ ., Hitters)
+summary(fit)
+```
+
+\newpage
+### Ridge (L2)
+
+We have three regularization options to deal with our correlated predictors.
+
+1. Ridge: L2 regularization - penalize the squared Euclidian length of the slope vector.
+2. Lasso: L1 regularization - penalize the Manhattan distance of the slope vector.
+3. Elastic Net: L1 and L2 regularization - penalize upon a linear combination of Ridge and Lasso penalties.
+
+- What is the ideal amount of shrinkage (lambda) for Ridge regression? How can we choose an ideal lambda?
+- How do the coefficients change with L2 regularization?
+
+```{r, message=F}
+require(glmnet)
+
+# using model.matrix is important, as it expands the categorical variables
+x = model.matrix(Salary ~ ., Hitters)[ ,-1]
+y = Hitters$Salary
+
+# create a grid of lambdas
+grid = 10 ^ seq(-2, 6, length=100)
+
+# fit ridge regression
+fit_ridge = glmnet(x, y,
+                    lambda = grid,
+                    alpha = 0)
+plot(fit_ridge, xvar = "lambda")
+```
+
+\newpage
+```{r}
+# perform cross validation to determine a good lambda
+fit_ridge_cv = cv.glmnet(x, y, alpha = 0, nfolds = 5)
+plot(fit_ridge_cv)
+```
+
+```{r}
+# perform ridge on the ideal lambda value we found
+fit_ridge_final = glmnet(x, y, lambda = exp(8), alpha = 0)
+coef(fit_ridge_final)
+```
+
+
+\newpage
+### Lasso (L1)
+
+- What is the ideal amount of shrinkage (lambda) for Ridge regression?
+- How do the coefficients change with L2 regularization? (To see the traces more clearly, reduce the range of the lambda grid so the "action" is mostly in the plot.)
+
+```{r, fig.height=3.2}
+require(glmnet)
+
+fit_lasso = glmnet(x, y,
+                    lambda = grid,
+                    alpha = 1)
+plot(fit_lasso, xvar = "lambda")
+```
+
+
+```{r, fig.height=3.2}
+fit_lasso_cv = cv.glmnet(x, y, alpha = 1)
+plot(fit_lasso_cv)
+```
+
+\newpage
+
+### Stepwise Selection
+
+
+```{r, results='hide'}
+step(fit, direction = "backward")
+```
+
+```{r}
+fit_2 = lm(formula = Salary ~ AtBat + Hits + Walks + CAtBat + 
+             CRuns + CRBI + CWalks + Division + PutOuts + Assists, data = Hitters)
+summary(fit_2)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
